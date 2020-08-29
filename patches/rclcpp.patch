@@ -1,0 +1,211 @@
+diff -ruN rclcpp/rclcpp/CMakeLists.txt privaros_rclcpp/rclcpp/CMakeLists.txt
+--- rclcpp/rclcpp/CMakeLists.txt	2020-08-06 09:59:21.913612368 -0400
++++ privaros_rclcpp/rclcpp/CMakeLists.txt	2020-08-06 09:59:33.053446287 -0400
+@@ -14,6 +14,15 @@
+ find_package(rosidl_typesupport_c REQUIRED)
+ find_package(rosidl_typesupport_cpp REQUIRED)
+ 
++find_package(std_msgs REQUIRED)
++find_package(fastrtps_cmake_module REQUIRED)
++find_package(fastrtps REQUIRED CONFIG)
++find_package(FastRTPS REQUIRED MODULE)
++find_package(rmw REQUIRED)
++find_package(rmw_fastrtps_cpp REQUIRED)
++find_package(rosidl_typesupport_fastrtps_c REQUIRED)
++find_package(rosidl_typesupport_fastrtps_cpp REQUIRED)
++
+ # Default to C++14
+ if(NOT CMAKE_CXX_STANDARD)
+   set(CMAKE_CXX_STANDARD 14)
+@@ -109,7 +118,13 @@
+   "builtin_interfaces"
+   "rosgraph_msgs"
+   "rosidl_typesupport_cpp"
+-  "rosidl_generator_cpp")
++  "rosidl_generator_cpp"
++  "std_msgs"
++  "rosidl_typesupport_fastrtps_c"
++  "rosidl_typesupport_fastrtps_cpp"
++  "rmw_fastrtps_cpp"
++  "rmw"
++  )
+ 
+ # Causes the visibility macros to use dllexport rather than dllimport,
+ # which is appropriate when building the dll but not consuming it.
+@@ -126,6 +141,8 @@
+ # specific order: dependents before dependencies
+ ament_export_include_directories(include)
+ ament_export_libraries(${PROJECT_NAME})
++ament_export_libraries(rmw_fastrtps_cpp)
++
+ 
+ ament_export_dependencies(ament_cmake)
+ ament_export_dependencies(rcl)
+diff -ruN rclcpp/rclcpp/package.xml privaros_rclcpp/rclcpp/package.xml
+--- rclcpp/rclcpp/package.xml	2020-08-06 09:59:21.921612248 -0400
++++ privaros_rclcpp/rclcpp/package.xml	2020-08-06 09:59:33.053446287 -0400
+@@ -17,12 +17,14 @@
+   <build_depend>rosidl_generator_cpp</build_depend>
+   <build_depend>rosidl_typesupport_c</build_depend>
+   <build_depend>rosidl_typesupport_cpp</build_depend>
++  <build_depend>std_msgs</build_depend>
+   <build_export_depend>builtin_interfaces</build_export_depend>
+   <build_export_depend>rcl_interfaces</build_export_depend>
+   <build_export_depend>rosgraph_msgs</build_export_depend>
+   <build_export_depend>rosidl_generator_cpp</build_export_depend>
+   <build_export_depend>rosidl_typesupport_c</build_export_depend>
+   <build_export_depend>rosidl_typesupport_cpp</build_export_depend>
++  <build_export_depend>std_msgs</build_export_depend>
+ 
+   <depend>rcl</depend>
+   <depend>rcl_yaml_param_parser</depend>
+diff -ruN rclcpp/rclcpp/src/rclcpp/node.cpp privaros_rclcpp/rclcpp/src/rclcpp/node.cpp
+--- rclcpp/rclcpp/src/rclcpp/node.cpp	2020-08-06 09:59:21.925612188 -0400
++++ privaros_rclcpp/rclcpp/src/rclcpp/node.cpp	2020-08-06 09:59:33.053446287 -0400
+@@ -27,6 +27,12 @@
+ #include "rclcpp/node_interfaces/node_clock.hpp"
+ #include "rclcpp/node_interfaces/node_graph.hpp"
+ #include "rclcpp/node_interfaces/node_logging.hpp"
++
++
++#include "fastrtps/Domain.h"
++#include <unistd.h> 
++using Domain = eprosima::fastrtps::Domain;
++
+ // When compiling this file, Windows produces a deprecation warning for the
+ // deprecated function prototype of NodeParameters::register_param_change_callback().
+ // Other compilers do not.
+@@ -45,10 +51,12 @@
+ #include "rclcpp/node_interfaces/node_waitables.hpp"
+ 
+ #include "rmw/validate_namespace.h"
++#include "std_msgs/msg/string.hpp"
+ 
+ using rclcpp::Node;
+ using rclcpp::NodeOptions;
+ using rclcpp::exceptions::throw_from_rcl_error;
++rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_default;
+ 
+ RCLCPP_LOCAL
+ std::string
+@@ -102,6 +110,120 @@
+   const NodeOptions & options)
+ : Node(node_name, "", options)
+ {
++  auto callback =
++      [this](const std_msgs::msg::String::SharedPtr msg) -> void
++      {
++        // std::map<std::string, std::vector<std::string>> val = get_topic_names_and_types();
++        // std::map<std::string, std::vector<std::string>>::iterator itr;
++        // std::vector<std::string>::iterator it;
++        // for (itr = val.begin(); itr != val.end(); itr++)
++        // {
++        //   std::cout << (itr->first) << std::endl;
++        //   for(it = (itr->second).begin(); it != (itr->second).end(); it++)
++        //   {
++        //     std::cout << "\t" << *it << std::endl;
++        //   }
++        // }
++        int len = msg->data.length();
++        if (len > 0)
++        {
++          std::string tmp = "";
++          int start_idx = 0;
++          for(int i = 0; i < len; i++)
++          {
++            if (msg->data[i] == ',')
++            {
++              start_idx = i+1;
++              break;
++            }
++          }
++          if (msg->data[0] == '1')
++          {
++              std::vector<std::string> pub_data;
++              std::vector<std::string> sub_data;
++              std::vector<std::string> pub_data1;
++              int count = 0;
++              for(int i = start_idx; i < len; i++)
++              {
++                if (msg->data[i] == ' ')
++                  continue;
++                else if (msg->data[i] == ',')
++                {
++                  if (count <= 1)
++                    pub_data.push_back(tmp);
++                  else if (count >= 4)
++                    pub_data1.push_back(tmp);
++                  else
++                    sub_data.push_back(tmp);
++                  count += 1;
++                  tmp = "";
++                }
++                else
++                  tmp += msg->data[i];
++              }
++              pub_data1.push_back(tmp);
++
++              std::vector<std::string>::iterator i;
++              std::cout << "Publishers:";
++              for(i = pub_data.begin(); i!= pub_data.end(); i++)
++                std::cout << (*i) << " ";
++              std::cout << std::endl;
++              std::cout << "Subscribers:";
++              for(i = sub_data.begin(); i!= sub_data.end(); i++)
++                std::cout << (*i) << " ";
++              std::cout << std::endl;
++
++              // update_flow(msg->data.c_str());
++              if (pub_data.size() > 0 && sub_data.size() > 0 && pub_data1.size() > 0)
++                Domain::rtps_update_flow(pub_data, sub_data, pub_data1);
++              
++          }
++          else if (msg->data[0] == '2')
++          {
++              // int current_pid = getppid();
++              int current_pid = getpid();
++              std::string string_pid = std::to_string(current_pid);
++              std::cout << "PID:" << current_pid << "," << string_pid << std::endl;
++              std::vector<std::string> data;
++              tmp = "";
++              for(int i = start_idx; i < len; i++)
++              {
++                if (msg->data[i] == ' ')
++                  continue;
++                else if (msg->data[i] == ',')
++                {
++                  data.push_back(tmp);
++                  tmp = "";
++                }
++                else
++                  tmp += msg->data[i];
++              }
++              data.push_back(tmp);
++
++              
++              if (data[1].compare(string_pid) == 0)
++              {
++                if (data[0].compare("pub") == 0)
++                {
++                  Domain::rtps_update_pub(data[2], data[3]);
++                }
++                else if (data[0].compare("sub") == 0)
++                {
++                  Domain::rtps_update_sub(data[2], data[3]);
++                }
++              }
++          }
++
++          RCLCPP_INFO(this->get_logger(), "I heard: [%s]", msg->data.c_str());
++        }
++        
++      };
++
++    // Create a subscription to the topic which can be matched with one or more compatible ROS
++    // publishers.
++    // Note that not all publishers on the same topic with the same type will be compatible:
++    // they must have compatible Quality of Service policies.
++    sub_default = create_subscription<std_msgs::msg::String>("flowcontroller", 10, callback);
+ }
+ 
+ Node::Node(
