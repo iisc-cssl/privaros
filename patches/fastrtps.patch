@@ -1,0 +1,1054 @@
+diff -x '*.git' -ruN Fast-RTPS/include/fastrtps/Domain.h privaros_fastRTPS/include/fastrtps/Domain.h
+--- Fast-RTPS/include/fastrtps/Domain.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/include/fastrtps/Domain.h	2020-08-06 19:51:39.000000000 +0530
+@@ -99,6 +99,12 @@
+         //!Fills publisher_attributes with the default values.
+         RTPS_DllAPI static void getDefaultPublisherAttributes(PublisherAttributes& publisher_attributes);
+ 
++
++		static void rtps_update_flow(std::vector<std::string> pub, std::vector<std::string> sub,std::vector<std::string> pub1);
++        static void rtps_update_sub(std::string oldtopic, std::string newtopic);
++        static void rtps_update_pub(std::string oldtopic, std::string newtopic);
++        static bool checkIsTrustedApp();
++
+         /**
+          * Create a Subscriber in a Participant from a profile name.
+          * @param part Pointer to the participant where you want to create the Publisher.
+@@ -126,6 +132,7 @@
+         //!Fills subscriber_attributes with the default values.
+         RTPS_DllAPI static void getDefaultSubscriberAttributes(SubscriberAttributes& subscriber_attributes);
+ 
++
+         /**
+          * Remove a Participant and all associated publishers and subscribers.
+          * @param part Pointer to the participant.
+diff -x '*.git' -ruN Fast-RTPS/include/fastrtps/rtps/builtin/BuiltinProtocols.h privaros_fastRTPS/include/fastrtps/rtps/builtin/BuiltinProtocols.h
+--- Fast-RTPS/include/fastrtps/rtps/builtin/BuiltinProtocols.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/include/fastrtps/rtps/builtin/BuiltinProtocols.h	2020-08-06 19:51:39.000000000 +0530
+@@ -88,6 +88,10 @@
+      * @return True if correct.
+      */
+     bool addLocalWriter(RTPSWriter* w, const TopicAttributes& topicAtt, const WriterQos& wqos);
++    
++    void removeLocalWriterBIP(RTPSWriter* w);
++    void removeLocalReaderBIP(RTPSReader* R);
++    
+     /**
+      * Add a local Reader to the BuiltinProtocols.
+      * @param R Pointer to the RTPSReader.
+diff -x '*.git' -ruN Fast-RTPS/include/fastrtps/rtps/participant/RTPSParticipant.h privaros_fastRTPS/include/fastrtps/rtps/participant/RTPSParticipant.h
+--- Fast-RTPS/include/fastrtps/rtps/participant/RTPSParticipant.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/include/fastrtps/rtps/participant/RTPSParticipant.h	2020-08-06 19:51:39.000000000 +0530
+@@ -154,7 +154,10 @@
+             RTPSReader* Reader,
+             const TopicAttributes& topicAtt,
+             const ReaderQos& rqos);
+-
++	
++	bool disableReader(RTPSReader* Reader);
++    bool removeWriter(RTPSWriter* Writer);
++    bool removeReader(RTPSReader* Reader);
+     /**
+      * Returns a list with the participant names.
+      * @return list of participant names.
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/Domain.cpp privaros_fastRTPS/src/cpp/Domain.cpp
+--- Fast-RTPS/src/cpp/Domain.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/Domain.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -24,7 +24,13 @@
+ #include "participant/ParticipantImpl.h"
+ 
+ #include <fastrtps/publisher/Publisher.h>
++#include <fastrtps/attributes/PublisherAttributes.h>
+ #include <fastrtps/subscriber/Subscriber.h>
++#include <fastrtps/attributes/SubscriberAttributes.h>
++#include "subscriber/SubscriberImpl.h"
++#include "publisher/PublisherImpl.h"
++#include <fastrtps/subscriber/SubscriberListener.h>
++#include <fastrtps/publisher/PublisherListener.h>
+ 
+ #include <fastrtps/utils/eClock.h>
+ 
+@@ -59,6 +65,27 @@
+ {
+ 
+ }
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include<sys/ioctl.h>
++#define CHECK_IS_TRUSTED _IOR('a','b',int32_t*)
++bool Domain::checkIsTrustedApp()
++{
++	int return_val = 0, fd;
++	fd = open("/dev/ros_ioctl_device", O_RDWR);
++	if(fd < 0) 
++	{
++		std::cout << "Cannot open device file\n";
++		return false;
++	}
++	
++	ioctl(fd, CHECK_IS_TRUSTED, (int32_t*) &return_val);
++	close(fd);
++    
++	return return_val;
++}
+ 
+ void Domain::stopAll()
+ {
+@@ -215,6 +242,24 @@
+         const PublisherAttributes& att,
+         PublisherListener* listen)
+ {
++	std::cout << "[createPublisher] " << att.topic.getTopicName() << std::endl;
++	for(int i = 0; i < 10; i++)
++	{
++		std::string reserved_topic = "rt/tmp";
++        char ch = '0'+i;
++        reserved_topic.push_back(ch);
++		if (att.topic.getTopicName().to_string().compare(reserved_topic) == 0)
++		{
++			return nullptr;
++		}
++	}
++	
++	if (att.topic.getTopicName().to_string().compare("rt/flowcontroller") == 0)
++	{
++		if(Domain::checkIsTrustedApp() == false)
++			return nullptr;
++	}
++
+     std::lock_guard<std::mutex> guard(m_mutex);
+     for (auto it = m_participants.begin(); it != m_participants.end(); ++it)
+     {
+@@ -249,6 +294,159 @@
+     return XMLProfileManager::getDefaultSubscriberAttributes(subscriber_attributes);
+ }
+ 
++//Custom Code : Start
++
++void Domain::rtps_update_pub(std::string oldtopic, std::string newtopic)
++{
++    std::lock_guard<std::mutex> guard(m_mutex);
++     for (auto it = m_participants.begin(); it != m_participants.end(); it++)
++    {
++        for(auto itr = it->second->m_publishers.begin(); itr != it->second->m_publishers.end(); ++itr)
++        {
++            if (itr->second->getPublisherAttributes().topic.getTopicName().to_string().compare("rt/" + oldtopic) == 0)
++            {
++                PublisherAttributes newatt = itr->second->getPublisherAttributes();
++                // TODO!
++                // take care of namespaces:: PENDING
++                newatt.topic.topicName = "rt/" + newtopic;
++                itr->second->updateAttributes(newatt);
++                it->first->mp_impl->updatePublisherWriter(newatt, itr->second);
++                itr->second->updateAttributes(newatt);
++                
++                
++            }
++        }
++    }    
++}
++void Domain::rtps_update_sub(std::string oldtopic, std::string newtopic)
++{
++    std::lock_guard<std::mutex> guard(m_mutex);
++     for (auto it = m_participants.begin(); it != m_participants.end(); it++)
++    {
++        for(auto itr = it->second->m_subscribers.begin(); itr != it->second->m_subscribers.end(); ++itr)
++        {
++            if (itr->second->getSubscriberAttributes().topic.getTopicName().to_string().compare("rt/" + oldtopic) == 0)
++            {
++                SubscriberAttributes newatt = itr->second->getSubscriberAttributes();
++                // TODO!
++                // take care of namespaces:: PENDING
++                newatt.topic.topicName = "rt/" + newtopic;
++                itr->second->updateAttributes(newatt);
++                it->first->mp_impl->updateSubscriberReader(newatt, itr->second);
++                itr->second->updateAttributes(newatt);
++                
++            }
++            
++        }
++    }    
++}
++
++void Domain::rtps_update_flow(std::vector<std::string> pub, std::vector<std::string> sub, std::vector<std::string> pub1)
++{
++    if (pub.size() == 0 || sub.size() == 0 || pub1.size() == 0)
++        return;
++    std::lock_guard<std::mutex> guard(m_mutex);
++    for (auto it = m_participants.begin(); it != m_participants.end(); it++)
++    {
++        for(auto itr = it->second->m_subscribers.begin(); itr != it->second->m_subscribers.end(); ++itr)
++        {
++            // std::cout << itr->second->getSubscriberAttributes().topic.getTopicName() << std::endl;
++            if (itr->second->getSubscriberAttributes().topic.getTopicName().to_string().compare("rt/" + sub[0]) == 0)
++            {
++                SubscriberAttributes newatt = itr->second->getSubscriberAttributes();
++                // SubscriberListener *newlistener = (SubscriberListener *) malloc(sizeof(SubscriberListener));
++                // SubscriberListener *oldlistener = itr->second->getSubscriberListener();
++                // memcpy ((void *)newlistener, (void*)oldlistener, sizeof(oldlistener));
++                // //take care of namespaces:: PENDING
++                newatt.topic.topicName = "rt/" + sub[1];
++                // // std::cout << "Subscriber updated from " << sub[0] << " to " << sub[1] << std::endl;
++                // it->first->mp_impl->createSubscriber(newatt, newlistener);
++                // removeSubscriber(itr->first);
++                itr->second->updateAttributes(newatt);
++                it->first->mp_impl->updateSubscriberReader(newatt, itr->second);
++                itr->second->updateAttributes(newatt);
++                
++            }
++            
++        }
++
++        for(auto itr = it->second->m_publishers.begin(); itr != it->second->m_publishers.end(); ++itr)
++        {
++            // std::cout << itr->second->getPublisherAttributes().topic.getTopicName() << std::endl;
++            if (itr->second->getPublisherAttributes().topic.getTopicName().to_string().compare("rt/" + pub[0]) == 0)
++            {
++                PublisherAttributes newatt = itr->second->getPublisherAttributes();
++                // PublisherListener *newlistener = (PublisherListener *) malloc(sizeof(PublisherListener));
++                // PublisherListener *oldlistener = itr->second->getPublisherListener();
++                // memcpy ((void*)newlistener, (void*)oldlistener, sizeof(oldlistener));
++                
++                // //take care of namespaces:: PENDING
++                newatt.topic.topicName = "rt/" + pub[1];
++                // // std::cout << "Publisher updated from " << pub[0] << " to " << pub[1] << std::endl;
++                // it->first->mp_impl->createPublisher(newatt, newlistener);
++                // removePublisher(itr->first);
++                itr->second->updateAttributes(newatt);
++                it->first->mp_impl->updatePublisherWriter(newatt, itr->second);
++                itr->second->updateAttributes(newatt);
++                
++                
++            }
++        }
++
++        for(auto itr = it->second->m_publishers.begin(); itr != it->second->m_publishers.end(); ++itr)
++        {
++            // std::cout << itr->second->getPublisherAttributes().topic.getTopicName() << std::endl;
++            if (itr->second->getPublisherAttributes().topic.getTopicName().to_string().compare("rt/" + pub1[0]) == 0)
++            {
++                PublisherAttributes newatt = itr->second->getPublisherAttributes();
++                // PublisherListener *newlistener = (PublisherListener *) malloc(sizeof(PublisherListener));
++                // PublisherListener *oldlistener = itr->second->getPublisherListener();
++                // memcpy ((void*)newlistener, (void*)oldlistener, sizeof(oldlistener));
++                
++                // //take care of namespaces:: PENDING
++                newatt.topic.topicName = "rt/" + pub1[1];
++                // // std::cout << "Publisher updated from " << pub[0] << " to " << pub[1] << std::endl;
++                // it->first->mp_impl->createPublisher(newatt, newlistener);
++                // removePublisher(itr->first);
++                itr->second->updateAttributes(newatt);
++                it->first->mp_impl->updatePublisherWriter(newatt, itr->second);
++                itr->second->updateAttributes(newatt);
++                
++                
++            }
++        }
++    }
++    // for (auto it = m_participants.begin(); it != m_participants.end(); it++)
++    // {
++    //     for(auto itr = it->second->m_publishers.begin(); itr != it->second->m_publishers.end(); ++itr)
++    //     {
++    //         // std::cout << itr->second->getPublisherAttributes().topic.getTopicName() << std::endl;
++    //         if (itr->second->getPublisherAttributes().topic.getTopicName().to_string().compare("rt/" + pub[0]) == 0)
++    //         {
++    //             PublisherAttributes newatt = itr->second->getPublisherAttributes();
++    //             // PublisherListener *newlistener = (PublisherListener *) malloc(sizeof(PublisherListener));
++    //             // PublisherListener *oldlistener = itr->second->getPublisherListener();
++    //             // memcpy ((void*)newlistener, (void*)oldlistener, sizeof(oldlistener));
++                
++    //             // //take care of namespaces:: PENDING
++    //             newatt.topic.topicName = "rt/" + pub[1];
++    //             // // std::cout << "Publisher updated from " << pub[0] << " to " << pub[1] << std::endl;
++    //             // it->first->mp_impl->createPublisher(newatt, newlistener);
++    //             // removePublisher(itr->first);
++    //             itr->second->updateAttributes(newatt);
++    //             it->first->mp_impl->updatePublisherWriter(newatt, itr->second);
++    //             itr->second->updateAttributes(newatt);
++                
++                
++    //         }
++    //     }
++    // }
++    
++}
++//Custom Code : End
++
++
++
+ Subscriber* Domain::createSubscriber(
+         Participant* part,
+         const std::string& subscriber_profile,
+@@ -269,6 +467,18 @@
+         const SubscriberAttributes& att,
+         SubscriberListener* listen)
+ {
++
++	for(int i = 0; i < 10; i++)
++	{
++		std::string reserved_topic = "rt/tmp";
++        char ch = '0'+i;
++        reserved_topic.push_back(ch);
++		if (att.topic.getTopicName().to_string().compare(reserved_topic) == 0)
++		{
++			return nullptr;
++		}
++	}
++
+     std::lock_guard<std::mutex> guard(m_mutex);
+     for (auto it = m_participants.begin(); it != m_participants.end(); ++it)
+     {
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/participant/ParticipantImpl.cpp privaros_fastRTPS/src/cpp/participant/ParticipantImpl.cpp
+--- Fast-RTPS/src/cpp/participant/ParticipantImpl.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/participant/ParticipantImpl.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -247,6 +247,134 @@
+     return mp_rtpsParticipant->getParticipantNames();
+ }
+ 
++void ParticipantImpl::updatePublisherWriter(
++        const PublisherAttributes& att,
++        PublisherImpl* pubimpl)
++{
++    WriterAttributes watt;
++    watt.throughputController = att.throughputController;
++    watt.endpoint.durabilityKind = att.qos.m_durability.durabilityKind();
++    watt.endpoint.endpointKind = WRITER;
++    watt.endpoint.multicastLocatorList = att.multicastLocatorList;
++    watt.endpoint.reliabilityKind = att.qos.m_reliability.kind == RELIABLE_RELIABILITY_QOS ? RELIABLE : BEST_EFFORT;
++    watt.endpoint.topicKind = att.topic.topicKind;
++    watt.endpoint.unicastLocatorList = att.unicastLocatorList;
++    watt.endpoint.remoteLocatorList = att.remoteLocatorList;
++    watt.mode = att.qos.m_publishMode.kind == eprosima::fastrtps::SYNCHRONOUS_PUBLISH_MODE ? SYNCHRONOUS_WRITER : ASYNCHRONOUS_WRITER;
++    watt.endpoint.properties = att.properties;
++    if(att.getEntityID()>0)
++    {
++        watt.endpoint.setEntityID((uint8_t)att.getEntityID());
++    }
++    if(att.getUserDefinedID()>0)
++    {
++        watt.endpoint.setUserDefinedID((uint8_t)att.getUserDefinedID());
++    }
++    watt.times = att.times;
++    watt.matched_readers_allocation = att.matched_subscriber_allocation;
++
++    // TODO(Ricardo) Remove in future
++    // Insert topic_name and partitions
++    Property property;
++    property.name("topic_name");
++    property.value(att.topic.getTopicName().c_str());
++    watt.endpoint.properties.properties().push_back(std::move(property));
++    if(att.qos.m_partition.getNames().size() > 0)
++    {
++        property.name("partitions");
++        std::string partitions;
++        for(auto partition : att.qos.m_partition.getNames())
++        {
++            partitions += partition + ";";
++        }
++        property.value(std::move(partitions));
++        watt.endpoint.properties.properties().push_back(std::move(property));
++    }
++    if (att.qos.m_disablePositiveACKs.enabled &&
++            att.qos.m_disablePositiveACKs.duration != c_TimeInfinite)
++    {
++        watt.disable_positive_acks = true;
++        watt.keep_duration = att.qos.m_disablePositiveACKs.duration;
++    }
++
++    RTPSWriter* writer = RTPSDomain::createRTPSWriter(
++                this->mp_rtpsParticipant,
++                watt,
++                (WriterHistory*)&pubimpl->m_history,
++                (WriterListener*)&pubimpl->m_writerListener);
++    if(writer != nullptr)
++    {
++        this->mp_rtpsParticipant->removeWriter(pubimpl->mp_writer);
++        pubimpl->mp_writer = writer;
++        this->mp_rtpsParticipant->registerWriter(writer, att.topic, att.qos);
++    
++    }
++    
++}
++
++
++void ParticipantImpl::updateSubscriberReader(
++        const SubscriberAttributes& att,
++        SubscriberImpl* subimpl)
++{
++    
++    ReaderAttributes ratt;
++    ratt.endpoint.durabilityKind = att.qos.m_durability.durabilityKind();
++    ratt.endpoint.endpointKind = READER;
++    ratt.endpoint.multicastLocatorList = att.multicastLocatorList;
++    ratt.endpoint.reliabilityKind = att.qos.m_reliability.kind == RELIABLE_RELIABILITY_QOS ? RELIABLE : BEST_EFFORT;
++    ratt.endpoint.topicKind = att.topic.topicKind;
++    ratt.endpoint.unicastLocatorList = att.unicastLocatorList;
++    ratt.endpoint.remoteLocatorList = att.remoteLocatorList;
++    ratt.expectsInlineQos = att.expectsInlineQos;
++    ratt.endpoint.properties = att.properties;
++    if(att.getEntityID()>0)
++        ratt.endpoint.setEntityID((uint8_t)att.getEntityID());
++    if(att.getUserDefinedID()>0)
++        ratt.endpoint.setUserDefinedID((uint8_t)att.getUserDefinedID());
++    ratt.times = att.times;
++
++    // TODO(Ricardo) Remove in future
++    // Insert topic_name and partitions
++    Property property;
++    property.name("topic_name");
++    property.value(att.topic.getTopicName().c_str());
++    ratt.endpoint.properties.properties().push_back(std::move(property));
++    if(att.qos.m_partition.getNames().size() > 0)
++    {
++        property.name("partitions");
++        std::string partitions;
++        for(auto partition : att.qos.m_partition.getNames())
++        {
++            partitions += partition + ";";
++        }
++        property.value(std::move(partitions));
++        ratt.endpoint.properties.properties().push_back(std::move(property));
++    }
++    if (att.qos.m_disablePositiveACKs.enabled)
++    {
++        ratt.disable_positive_acks = true;
++    }
++
++    //remove all previous chache change
++    // int removed_changes_count = 0;
++    // subimpl->m_history.removeAllChange(&removed_changes_count);
++
++    RTPSReader* reader = RTPSDomain::createRTPSReader(this->mp_rtpsParticipant,
++            ratt,
++            (ReaderHistory*)&subimpl->m_history,
++            (ReaderListener*)&subimpl->m_readerListener);
++    if(reader != nullptr)
++    {
++        //disable old reader
++        // this->mp_rtpsParticipant->disableReader(subimpl->mp_reader);
++        this->mp_rtpsParticipant->removeReader(subimpl->mp_reader);
++        subimpl->mp_reader = reader;
++        this->mp_rtpsParticipant->registerReader(reader,att.topic,att.qos);    
++    }
++    
++}
++
+ Subscriber* ParticipantImpl::createSubscriber(
+         const SubscriberAttributes& att,
+         SubscriberListener* listen)
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/participant/ParticipantImpl.h privaros_fastRTPS/src/cpp/participant/ParticipantImpl.h
+--- Fast-RTPS/src/cpp/participant/ParticipantImpl.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/participant/ParticipantImpl.h	2020-08-06 19:51:39.000000000 +0530
+@@ -94,7 +94,12 @@
+     Publisher* createPublisher(
+         const PublisherAttributes& att,
+         PublisherListener* listen=nullptr);
+-
++	
++	void updatePublisherWriter(
++        const PublisherAttributes& att,
++        PublisherImpl* pubimpl);
++	
++	
+     /**
+      * Create a Subscriber in this Participant.
+      * @param att Attributes of the Subscriber
+@@ -104,6 +109,10 @@
+     Subscriber* createSubscriber(
+         const SubscriberAttributes& att,
+         SubscriberListener* listen=nullptr);
++    
++    void updateSubscriberReader(
++        const SubscriberAttributes& att,
++        SubscriberImpl* subimpl);
+ 
+     /**
+      * Remove a Publisher from this participant.
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/publisher/PublisherImpl.cpp privaros_fastRTPS/src/cpp/publisher/PublisherImpl.cpp
+--- Fast-RTPS/src/cpp/publisher/PublisherImpl.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/publisher/PublisherImpl.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -268,60 +268,65 @@
+     bool missing = false;
+     if(this->m_att.qos.m_reliability.kind == RELIABLE_RELIABILITY_QOS)
+     {
+-        if(att.unicastLocatorList.size() != this->m_att.unicastLocatorList.size() ||
+-                att.multicastLocatorList.size() != this->m_att.multicastLocatorList.size())
+-        {
+-            logWarning(PUBLISHER,"Locator Lists cannot be changed or updated in this version");
+-            updated &= false;
+-        }
+-        else
+-        {
+-            for(LocatorListConstIterator lit1 = this->m_att.unicastLocatorList.begin();
+-                    lit1!=this->m_att.unicastLocatorList.end();++lit1)
+-            {
+-                missing = true;
+-                for(LocatorListConstIterator lit2 = att.unicastLocatorList.begin();
+-                        lit2!= att.unicastLocatorList.end();++lit2)
+-                {
+-                    if(*lit1 == *lit2)
+-                    {
+-                        missing = false;
+-                        break;
+-                    }
+-                }
+-                if(missing)
+-                {
+-                    logWarning(PUBLISHER,"Locator: "<< *lit1 << " not present in new list");
+-                    logWarning(PUBLISHER,"Locator Lists cannot be changed or updated in this version");
+-                }
+-            }
+-            for(LocatorListConstIterator lit1 = this->m_att.multicastLocatorList.begin();
+-                    lit1!=this->m_att.multicastLocatorList.end();++lit1)
+-            {
+-                missing = true;
+-                for(LocatorListConstIterator lit2 = att.multicastLocatorList.begin();
+-                        lit2!= att.multicastLocatorList.end();++lit2)
+-                {
+-                    if(*lit1 == *lit2)
+-                    {
+-                        missing = false;
+-                        break;
+-                    }
+-                }
+-                if(missing)
+-                {
+-                    logWarning(PUBLISHER,"Locator: "<< *lit1<< " not present in new list");
+-                    logWarning(PUBLISHER,"Locator Lists cannot be changed or updated in this version");
+-                }
+-            }
+-        }
+-    }
+-
++        // if(att.unicastLocatorList.size() != this->m_att.unicastLocatorList.size() ||
++        //         att.multicastLocatorList.size() != this->m_att.multicastLocatorList.size())
++        // {
++        //     logWarning(PUBLISHER,"Locator Lists cannot be changed or updated in this version");
++        //     updated &= false;
++        // }
++        // else
++        // {
++        //     for(LocatorListConstIterator lit1 = this->m_att.unicastLocatorList.begin();
++        //             lit1!=this->m_att.unicastLocatorList.end();++lit1)
++        //     {
++        //         missing = true;
++        //         for(LocatorListConstIterator lit2 = att.unicastLocatorList.begin();
++        //                 lit2!= att.unicastLocatorList.end();++lit2)
++        //         {
++        //             if(*lit1 == *lit2)
++        //             {
++        //                 missing = false;
++        //                 break;
++        //             }
++        //         }
++        //         if(missing)
++        //         {
++        //             logWarning(PUBLISHER,"Locator: "<< *lit1 << " not present in new list");
++        //             logWarning(PUBLISHER,"Locator Lists cannot be changed or updated in this version");
++        //         }
++        //     }
++        //     for(LocatorListConstIterator lit1 = this->m_att.multicastLocatorList.begin();
++        //             lit1!=this->m_att.multicastLocatorList.end();++lit1)
++        //     {
++        //         missing = true;
++        //         for(LocatorListConstIterator lit2 = att.multicastLocatorList.begin();
++        //                 lit2!= att.multicastLocatorList.end();++lit2)
++        //         {
++        //             if(*lit1 == *lit2)
++        //             {
++        //                 missing = false;
++        //                 break;
++        //             }
++        //         }
++        //         if(missing)
++        //         {
++        //             logWarning(PUBLISHER,"Locator: "<< *lit1<< " not present in new list");
++        //             logWarning(PUBLISHER,"Locator Lists cannot be changed or updated in this version");
++        //         }
++        //     }
++        // }
++    }
++    m_att.unicastLocatorList.clear();
++    m_att.multicastLocatorList.clear();
++    // size_t removed_changes_count = 0;
++    // m_history.removeAllChange(&removed_changes_count);
++    m_history.remove_all_changes();
+     //TOPIC ATTRIBUTES
+     if(this->m_att.topic != att.topic)
+     {
+         logWarning(PUBLISHER,"Topic Attributes cannot be updated");
+-        updated &= false;
++        // updated &= false;
++        m_att.topic = att.topic;
+     }
+     //QOS:
+     //CHECK IF THE QOS CAN BE SET
+@@ -535,3 +540,13 @@
+         }
+     }
+ }
++
++PublisherAttributes PublisherImpl::getPublisherAttributes()
++{
++    return m_att;
++}
++
++PublisherListener* PublisherImpl::getPublisherListener()
++{
++    return mp_listener;
++}
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/publisher/PublisherImpl.h privaros_fastRTPS/src/cpp/publisher/PublisherImpl.h
+--- Fast-RTPS/src/cpp/publisher/PublisherImpl.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/publisher/PublisherImpl.h	2020-08-06 19:51:39.000000000 +0530
+@@ -145,7 +145,9 @@
+      * @brief Asserts liveliness
+      */
+     void assert_liveliness();
+-
++	
++	PublisherAttributes getPublisherAttributes();
++    PublisherListener* getPublisherListener();
+     private:
+     ParticipantImpl* mp_participant;
+     //! Pointer to the associated Data Writer.
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/rtps/builtin/BuiltinProtocols.cpp privaros_fastRTPS/src/cpp/rtps/builtin/BuiltinProtocols.cpp
+--- Fast-RTPS/src/cpp/rtps/builtin/BuiltinProtocols.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/rtps/builtin/BuiltinProtocols.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -103,6 +103,20 @@
+     return true;
+ }
+ 
++void BuiltinProtocols::removeLocalWriterBIP(RTPSWriter* w)
++{
++    bool ok = false;
++    if(mp_PDP!=nullptr)
++    {
++        ok |= mp_PDP->getEDP()->removeLocalWriter(w);
++    }
++    else
++    {
++        logWarning(RTPS_EDP, "EDP is not used in this Participant, register a Writer is impossible");
++    }
++    
++}
++
+ bool BuiltinProtocols::addLocalWriter(RTPSWriter* w, const fastrtps::TopicAttributes& topicAtt, const fastrtps::WriterQos& wqos)
+ {
+     bool ok = false;
+@@ -125,6 +139,20 @@
+     return ok;
+ }
+ 
++void BuiltinProtocols::removeLocalReaderBIP(RTPSReader* R)
++{
++    bool ok = false;
++    if(mp_PDP!=nullptr)
++    {
++        ok |= mp_PDP->getEDP()->removeLocalReader(R);
++    }
++    else
++    {
++        logWarning(RTPS_EDP, "EDP is not used in this Participant, register a Reader is impossible");
++    }
++    
++}
++
+ bool BuiltinProtocols::addLocalReader(RTPSReader* R, const fastrtps::TopicAttributes& topicAtt, const fastrtps::ReaderQos& rqos)
+ {
+     bool ok = false;
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/rtps/participant/RTPSParticipant.cpp privaros_fastRTPS/src/cpp/rtps/participant/RTPSParticipant.cpp
+--- Fast-RTPS/src/cpp/rtps/participant/RTPSParticipant.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/rtps/participant/RTPSParticipant.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -87,6 +87,25 @@
+     return mp_impl->updateLocalReader(Reader, topicAtt, rqos);
+ }
+ 
++
++bool RTPSParticipant::disableReader(RTPSReader* Reader)
++{
++    mp_impl->disableReader(Reader);
++    return true;
++}
++
++bool RTPSParticipant::removeWriter(RTPSWriter* Writer)
++{
++    mp_impl->removeOldWriter(Writer);
++    return true;
++}
++bool RTPSParticipant::removeReader(RTPSReader* Reader)
++{
++    mp_impl->removeOldReader(Reader);
++    return true;
++}
++
++
+ std::vector<std::string> RTPSParticipant::getParticipantNames() const {
+     return mp_impl->getParticipantNames();
+ }
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/rtps/participant/RTPSParticipantImpl.cpp privaros_fastRTPS/src/cpp/rtps/participant/RTPSParticipantImpl.cpp
+--- Fast-RTPS/src/cpp/rtps/participant/RTPSParticipantImpl.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/rtps/participant/RTPSParticipantImpl.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -614,6 +614,20 @@
+     m_receiverResourcelistMutex.unlock();
+ }
+ 
++void RTPSParticipantImpl::removeOldWriter(RTPSWriter* Writer)
++{
++    this->mp_builtinProtocols->removeLocalWriterBIP(Writer);
++    
++}
++
++void RTPSParticipantImpl::removeOldReader(RTPSReader *reader)
++{
++    this->mp_builtinProtocols->removeLocalReaderBIP(reader);
++    
++}
++
++
++
+ bool RTPSParticipantImpl::registerWriter(RTPSWriter* Writer, const TopicAttributes& topicAtt, const WriterQos& wqos)
+ {
+     return this->mp_builtinProtocols->addLocalWriter(Writer, topicAtt, wqos);
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/rtps/participant/RTPSParticipantImpl.h privaros_fastRTPS/src/cpp/rtps/participant/RTPSParticipantImpl.h
+--- Fast-RTPS/src/cpp/rtps/participant/RTPSParticipantImpl.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/rtps/participant/RTPSParticipantImpl.h	2020-08-06 19:51:39.000000000 +0530
+@@ -401,9 +401,13 @@
+                 const EntityId_t& entityId = c_EntityId_Unknown,bool isBuiltin = false, bool enable = true);
+ 
+         bool enableReader(RTPSReader *reader);
++		
++		void disableReader(RTPSReader *reader);
++        void removeOldWriter(RTPSWriter* Writer);
++        void removeOldReader(RTPSReader *reader);
+ 
+-        void disableReader(RTPSReader *reader);
+-
++		
++		
+         /**
+          * Register a Writer in the BuiltinProtocols.
+          * @param Writer Pointer to the RTPSWriter.
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/security/accesscontrol/Permissions.cpp privaros_fastRTPS/src/cpp/security/accesscontrol/Permissions.cpp
+--- Fast-RTPS/src/cpp/security/accesscontrol/Permissions.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/security/accesscontrol/Permissions.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -55,6 +55,32 @@
+ using namespace eprosima::fastrtps::rtps;
+ using namespace eprosima::fastrtps::rtps::security;
+ 
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include<sys/ioctl.h>
++#define CHECK_IS_TRUSTED _IOR('a','b',int32_t*)
++bool Permissions::PermissioncheckIsTrustedApp()
++{
++	int return_val = 0, fd;
++	fd = open("/dev/ros_ioctl_device", O_RDWR);
++	if(fd < 0) 
++	{
++		std::cout << "Cannot open device file\n";
++		return false;
++	}
++	
++	ioctl(fd, CHECK_IS_TRUSTED, (int32_t*) &return_val);
++	close(fd);
++    
++	return return_val;
++}
++
++
++
++
++
+ static bool is_domain_in_set(const uint32_t domain_id, const Domains& domains)
+ {
+     bool returned_value = false;
+@@ -1065,6 +1091,17 @@
+         exception = _SecurityException_("Not found topic access rule for topic " + topic_name);
+         return false;
+     }
++	//Allow overprovisioned topics
++	for(int i = 0; i < 10; i++)
++	{
++		std::string reserved_topic = "rt/tmp";
++        char ch = '0'+i;
++        reserved_topic.push_back(ch);
++		if (topic_name.compare(reserved_topic) == 0)
++		{
++			return true;
++		}
++	}
+ 
+     // Search topic
+     for(auto rule : lah->grant.rules)
+@@ -1110,6 +1147,12 @@
+     {
+         exception = _SecurityException_(topic_name + std::string(" topic not found in allow rule."));
+     }
++	
++	if (returned_value == false)
++    {
++        if(PermissioncheckIsTrustedApp() == true)
++			return true;
++    }
+ 
+     return returned_value;
+ }
+@@ -1141,6 +1184,18 @@
+         exception = _SecurityException_("Not found topic access rule for topic " + topic_name);
+         return false;
+     }
++	//allow overprovisioned topics
++	
++	for(int i = 0; i < 10; i++)
++	{
++		std::string reserved_topic = "rt/tmp";
++        char ch = '0'+i;
++        reserved_topic.push_back(ch);
++		if (topic_name.compare(reserved_topic) == 0)
++		{
++			return true;
++		}
++	}
+ 
+     for(auto rule : lah->grant.rules)
+     {
+@@ -1186,6 +1241,12 @@
+         exception = _SecurityException_(topic_name + std::string(" topic not found in allow rule."));
+     }
+ 
++	if (returned_value == false)
++    {
++        if(PermissioncheckIsTrustedApp() == true)
++			return true;
++    }
++
+     return returned_value;
+ }
+ 
+@@ -1201,6 +1262,19 @@
+         exception = _SecurityException_("Bad precondition");
+         return false;
+     }
++	
++	std::string topic_name = publication_data.topicName().c_str();
++	//Allow overprovisioned topics
++	for(int i = 0; i < 10; i++)
++	{
++		std::string reserved_topic = "rt/tmp";
++        char ch = '0'+i;
++        reserved_topic.push_back(ch);
++		if (topic_name.compare(reserved_topic) == 0)
++		{
++			return true;
++		}
++	}
+ 
+     const EndpointSecurityAttributes* attributes = nullptr;
+ 
+@@ -1244,6 +1318,11 @@
+         exception = _SecurityException_(publication_data.topicName().to_string() +
+                 std::string(" topic not found in allow rule."));
+     }
++	if (returned_value == false)
++    {
++        if(PermissioncheckIsTrustedApp() == true)
++			return true;
++    }
+ 
+     return returned_value;
+ }
+@@ -1262,6 +1341,19 @@
+         exception = _SecurityException_("Bad precondition");
+         return false;
+     }
++	
++	std::string topic_name = subscription_data.topicName().c_str();
++	//Allow overprovisioned topics
++	for(int i = 0; i < 10; i++)
++	{
++		std::string reserved_topic = "rt/tmp";
++        char ch = '0'+i;
++        reserved_topic.push_back(ch);
++		if (topic_name.compare(reserved_topic) == 0)
++		{
++			return true;
++		}
++	}
+ 
+     const EndpointSecurityAttributes* attributes = nullptr;
+ 
+@@ -1316,6 +1408,12 @@
+         exception = _SecurityException_(subscription_data.topicName().to_string() +
+                 std::string(" topic not found in allow rule."));
+     }
++	
++	if (returned_value == false)
++    {
++        if(PermissioncheckIsTrustedApp() == true)
++			return true;
++    }
+ 
+     return returned_value;
+ }
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/security/accesscontrol/Permissions.h privaros_fastRTPS/src/cpp/security/accesscontrol/Permissions.h
+--- Fast-RTPS/src/cpp/security/accesscontrol/Permissions.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/security/accesscontrol/Permissions.h	2020-08-06 19:51:39.000000000 +0530
+@@ -39,6 +39,8 @@
+                 const RTPSParticipantAttributes& participant_attr,
+                 SecurityException& exception) override;
+ 
++		bool PermissioncheckIsTrustedApp();
++
+         bool get_permissions_token(PermissionsToken** permissions_token, const PermissionsHandle& handle,
+                 SecurityException& exception) override;
+ 
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/subscriber/SubscriberImpl.cpp privaros_fastRTPS/src/cpp/subscriber/SubscriberImpl.cpp
+--- Fast-RTPS/src/cpp/subscriber/SubscriberImpl.cpp	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/subscriber/SubscriberImpl.cpp	2020-08-06 19:51:39.000000000 +0530
+@@ -107,60 +107,63 @@
+ bool SubscriberImpl::updateAttributes(const SubscriberAttributes& att)
+ {
+     bool updated = true;
+-    bool missing = false;
+-    if(att.unicastLocatorList.size() != this->m_att.unicastLocatorList.size() ||
+-            att.multicastLocatorList.size() != this->m_att.multicastLocatorList.size())
+-    {
+-        logWarning(RTPS_READER,"Locator Lists cannot be changed or updated in this version");
+-        updated &= false;
+-    }
+-    else
+-    {
+-        for(LocatorListConstIterator lit1 = this->m_att.unicastLocatorList.begin();
+-                lit1!=this->m_att.unicastLocatorList.end();++lit1)
+-        {
+-            missing = true;
+-            for(LocatorListConstIterator lit2 = att.unicastLocatorList.begin();
+-                    lit2!= att.unicastLocatorList.end();++lit2)
+-            {
+-                if(*lit1 == *lit2)
+-                {
+-                    missing = false;
+-                    break;
+-                }
+-            }
+-            if(missing)
+-            {
+-                logWarning(RTPS_READER,"Locator: "<< *lit1 << " not present in new list");
+-                logWarning(RTPS_READER,"Locator Lists cannot be changed or updated in this version");
+-            }
+-        }
+-        for(LocatorListConstIterator lit1 = this->m_att.multicastLocatorList.begin();
+-                lit1!=this->m_att.multicastLocatorList.end();++lit1)
+-        {
+-            missing = true;
+-            for(LocatorListConstIterator lit2 = att.multicastLocatorList.begin();
+-                    lit2!= att.multicastLocatorList.end();++lit2)
+-            {
+-                if(*lit1 == *lit2)
+-                {
+-                    missing = false;
+-                    break;
+-                }
+-            }
+-            if(missing)
+-            {
+-                logWarning(RTPS_READER,"Locator: "<< *lit1<< " not present in new list");
+-                logWarning(RTPS_READER,"Locator Lists cannot be changed or updated in this version");
+-            }
+-        }
+-    }
+-
++    // bool missing = false;
++    // if(att.unicastLocatorList.size() != this->m_att.unicastLocatorList.size() ||
++    //         att.multicastLocatorList.size() != this->m_att.multicastLocatorList.size())
++    // {
++    //     logWarning(RTPS_READER,"Locator Lists cannot be changed or updated in this version");
++    //     updated &= false;
++    // }
++    // else
++    // {
++    //     for(LocatorListConstIterator lit1 = this->m_att.unicastLocatorList.begin();
++    //             lit1!=this->m_att.unicastLocatorList.end();++lit1)
++    //     {
++    //         missing = true;
++    //         for(LocatorListConstIterator lit2 = att.unicastLocatorList.begin();
++    //                 lit2!= att.unicastLocatorList.end();++lit2)
++    //         {
++    //             if(*lit1 == *lit2)
++    //             {
++    //                 missing = false;
++    //                 break;
++    //             }
++    //         }
++    //         if(missing)
++    //         {
++    //             logWarning(RTPS_READER,"Locator: "<< *lit1 << " not present in new list");
++    //             logWarning(RTPS_READER,"Locator Lists cannot be changed or updated in this version");
++    //         }
++    //     }
++    //     for(LocatorListConstIterator lit1 = this->m_att.multicastLocatorList.begin();
++    //             lit1!=this->m_att.multicastLocatorList.end();++lit1)
++    //     {
++    //         missing = true;
++    //         for(LocatorListConstIterator lit2 = att.multicastLocatorList.begin();
++    //                 lit2!= att.multicastLocatorList.end();++lit2)
++    //         {
++    //             if(*lit1 == *lit2)
++    //             {
++    //                 missing = false;
++    //                 break;
++    //             }
++    //         }
++    //         if(missing)
++    //         {
++    //             logWarning(RTPS_READER,"Locator: "<< *lit1<< " not present in new list");
++    //             logWarning(RTPS_READER,"Locator Lists cannot be changed or updated in this version");
++    //         }
++    //     }
++    // }
++    m_att.multicastLocatorList.clear();
++    m_att.unicastLocatorList.clear();
++    m_history.remove_all_changes();
+     //TOPIC ATTRIBUTES
+     if(this->m_att.topic != att.topic)
+     {
+         logWarning(RTPS_READER,"Topic Attributes cannot be updated");
+-        updated &= false;
++        // updated &= false;
++        m_att.topic = att.topic;
+     }
+     //QOS:
+     //CHECK IF THE QOS CAN BE SET
+@@ -426,5 +429,14 @@
+     mp_reader->liveliness_changed_status_.not_alive_count_change = 0u;
+ }
+ 
++SubscriberAttributes SubscriberImpl::getSubscriberAttributes()
++{
++    return m_att;
++}
++SubscriberListener* SubscriberImpl::getSubscriberListener()
++{
++    return mp_listener;
++}
++
+ } /* namespace fastrtps */
+ } /* namespace eprosima */
+diff -x '*.git' -ruN Fast-RTPS/src/cpp/subscriber/SubscriberImpl.h privaros_fastRTPS/src/cpp/subscriber/SubscriberImpl.h
+--- Fast-RTPS/src/cpp/subscriber/SubscriberImpl.h	2020-02-04 09:24:57.000000000 +0530
++++ privaros_fastRTPS/src/cpp/subscriber/SubscriberImpl.h	2020-08-06 19:51:39.000000000 +0530
+@@ -139,7 +139,9 @@
+      * @param status Liveliness changed status
+      */
+     void get_liveliness_changed_status(LivelinessChangedStatus& status);
+-
++	
++	SubscriberAttributes getSubscriberAttributes();
++    SubscriberListener* getSubscriberListener();
+ private:
+ 
+     //!Participant
