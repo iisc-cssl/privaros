@@ -1,0 +1,57 @@
+# Last Modified: Sun Oct  6 15:14:41 2019
+#include <tunables/global>
+
+/home/*/ros2_ws/build/demo_nodes_cpp/talker {
+  #include <abstractions/base>
+
+  dte_domain 2b06a1769d5f2fe0c349edf2c3f32520e4dd7800,
+  
+# talker
+  dte_net_domain 2b06a1769d5f2fe0c349edf2c3f32520e4dd7800,
+# listener
+  dte_net_domain e465e70dde4d345c00383efcc05d565b43bc17da,
+# colonel
+  dte_net_domain 1d0310a27e41322967d74f8c0fca2502181fdcd1,
+
+  /dev/pts/** wr,
+
+  /dev/ros_ioctl_device mwr,
+  /etc/ssl/openssl.cnf r,
+  /home/*/ros2_ws/build/builtin_interfaces/libbuiltin_interfaces__rosidl_generator_c.so mr,
+  /home/*/ros2_ws/build/libyaml_vendor/libyaml_install/lib/libyaml.so mr,
+  /home/*/ros2_ws/build/rcl/librcl.so mr,
+  /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_generator_c.so mr,
+  /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_c.so mr,
+  /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/rcl_logging_noop/librcl_logging_noop.so mr,
+  /home/*/ros2_ws/build/rcl_yaml_param_parser/librcl_yaml_param_parser.so mr,
+  /home/*/ros2_ws/build/rclcpp/librclcpp.so mr,
+  /home/*/ros2_ws/build/rcutils/librcutils.so mr,
+  /home/*/ros2_ws/build/rmw/librmw.so mr,
+  /home/*/ros2_ws/build/rmw_implementation/librmw_implementation.so mr,
+  /home/*/ros2_ws/build/rosgraph_msgs/librosgraph_msgs__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/rosidl_generator_c/librosidl_generator_c.so mr,
+  /home/*/ros2_ws/build/rosidl_typesupport_c/librosidl_typesupport_c.so mr,
+  /home/*/ros2_ws/build/rosidl_typesupport_cpp/librosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/std_msgs/libstd_msgs__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/demo_nodes_cpp/talker mr,
+  /lib/x86_64-linux-gnu/ld-*.so mr,
+  owner /home/*/ros2_ws/build/builtin_interfaces/libbuiltin_interfaces__rosidl_typesupport_fastrtps_c.so mr,
+  owner /home/*/ros2_ws/build/builtin_interfaces/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_fastrtps_c.so mr,
+  owner /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/rmw_fastrtps_cpp/librmw_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/rmw_fastrtps_shared_cpp/librmw_fastrtps_shared_cpp.so mr,
+  owner /home/*/ros2_ws/build/rosidl_typesupport_fastrtps_c/librosidl_typesupport_fastrtps_c.so mr,
+  owner /home/*/ros2_ws/build/rosidl_typesupport_fastrtps_cpp/librosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/std_msgs/libstd_msgs__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/install/fastcdr/lib/libfastcdr.so.1.0.* mr,
+  owner /home/*/ros2_ws/install/fastrtps/lib/libfastrtps.so.1.8.* mr,
+  owner /home/*/sros2_demo/demo_keys/talker/cert.pem r,
+  owner /home/*/sros2_demo/demo_keys/talker/governance.p7s r,
+  owner /home/*/sros2_demo/demo_keys/talker/identity_ca.cert.pem r,
+  owner /home/*/sros2_demo/demo_keys/talker/key.pem r,
+  owner /home/*/sros2_demo/demo_keys/talker/permissions.p7s r,
+  owner /home/*/sros2_demo/demo_keys/talker/permissions_ca.cert.pem r,
+
+}

@@ -1,0 +1,53 @@
+# Last Modified: Tue Nov 12 10:06:09 2019
+#include <tunables/global>
+
+/home/*/ros2_ws/build/image_tools/blurfilter {
+  #include <abstractions/base>
+
+  dte_domain 9b935023ea68cd058dcb612dc807ccdb6c983827,
+  dte_net_domain *,
+  is_trusted true,
+
+  /dev/ros_ioctl_device mwr,
+  /etc/ssl/openssl.cnf mr,
+  /home/*/ros2_ws/build/builtin_interfaces/libbuiltin_interfaces__rosidl_generator_c.so mr,
+  /home/*/ros2_ws/build/libyaml_vendor/libyaml_install/lib/libyaml.so mr,
+  /home/*/ros2_ws/build/rcl/librcl.so mr,
+  /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_generator_c.so mr,
+  /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_c.so mr,
+  /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/rcl_logging_noop/librcl_logging_noop.so mr,
+  /home/*/ros2_ws/build/rcl_yaml_param_parser/librcl_yaml_param_parser.so mr,
+  /home/*/ros2_ws/build/rclcpp/librclcpp.so mr,
+  /home/*/ros2_ws/build/rcutils/librcutils.so mr,
+  /home/*/ros2_ws/build/rmw/librmw.so mr,
+  /home/*/ros2_ws/build/rmw_fastrtps_cpp/librmw_fastrtps_cpp.so mr,
+  /home/*/ros2_ws/build/rmw_fastrtps_shared_cpp/librmw_fastrtps_shared_cpp.so mr,
+  /home/*/ros2_ws/build/rmw_implementation/librmw_implementation.so mr,
+  /home/*/ros2_ws/build/rosgraph_msgs/librosgraph_msgs__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/rosidl_generator_c/librosidl_generator_c.so mr,
+  /home/*/ros2_ws/build/rosidl_typesupport_c/librosidl_typesupport_c.so mr,
+  /home/*/ros2_ws/build/rosidl_typesupport_cpp/librosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/rosidl_typesupport_fastrtps_c/librosidl_typesupport_fastrtps_c.so mr,
+  /home/*/ros2_ws/build/rosidl_typesupport_fastrtps_cpp/librosidl_typesupport_fastrtps_cpp.so mr,
+  /home/*/ros2_ws/build/sensor_msgs/libsensor_msgs__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/build/std_msgs/libstd_msgs__rosidl_typesupport_cpp.so mr,
+  /home/*/ros2_ws/install/fastcdr/lib/libfastcdr.so.1.0.* mr,
+  /home/*/ros2_ws/install/fastrtps/lib/libfastrtps.so.1.8.* mr,
+  /home/*/ros2_ws/build/image_tools/blurfilter mr,
+  /lib/x86_64-linux-gnu/ld-*.so mr,
+  owner /home/*/ros2_ws/build/builtin_interfaces/libbuiltin_interfaces__rosidl_typesupport_fastrtps_c.so mr,
+  owner /home/*/ros2_ws/build/builtin_interfaces/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/geometry_msgs/libgeometry_msgs__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_fastrtps_c.so mr,
+  owner /home/*/ros2_ws/build/rcl_interfaces/librcl_interfaces__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/sensor_msgs/libsensor_msgs__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/ros2_ws/build/std_msgs/libstd_msgs__rosidl_typesupport_fastrtps_cpp.so mr,
+  owner /home/*/sros2_demo/demo_keys/*/cert.pem r,
+  owner /home/*/sros2_demo/demo_keys/*/governance.p7s r,
+  owner /home/*/sros2_demo/demo_keys/*/identity_ca.cert.pem r,
+  owner /home/*/sros2_demo/demo_keys/*/key.pem r,
+  owner /home/*/sros2_demo/demo_keys/*/permissions.p7s r,
+  owner /home/*/sros2_demo/demo_keys/*/permissions_ca.cert.pem r,
+
+}

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<policy version="0.1.0"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+  <profiles>
+    <xi:include href="minimal_action.xml"
+      xpointer="xpointer(/policy/profiles/*)"/>
+    <profile ns="/" node="sensor_msgs_image_tmp1">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics publish="ALLOW" >
+        <topic>imageoutput</topic>
+        <topic>imageraw</topic>
+      </topics>
+      <topics subscribe="ALLOW" >
+        <topic>newcameradata</topic>
+        <topic>imageinput</topic>
+        <topic>flowcontroller</topic>
+      </topics>
+    </profile>
+    
+    
+  </profiles>
+</policy>

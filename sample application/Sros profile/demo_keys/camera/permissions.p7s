@@ -1,0 +1,96 @@
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----AC256B78E72661FD91B622F6ACA60D7F"
+
+This is an S/MIME signed message
+
+------AC256B78E72661FD91B622F6ACA60D7F
+Content-Type: text/plain
+
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.omg.org/spec/DDS-SECURITY/20170901/omg_shared_ca_permissions.xsd">
+  <permissions>
+    <grant name="/camera">
+      <subject_name>CN=/camera</subject_name>
+      <validity>
+        <not_before>2013-10-26T00:00:00</not_before>
+        <not_after>2023-10-26T22:45:30</not_after>
+      </validity>
+      <allow_rule>
+        <domains>
+          <id>0</id>
+        </domains>
+        <publish>
+          <topics>
+            <topic>rq/camera/describe_parametersRequest</topic>
+            <topic>rq/camera/get_parameter_typesRequest</topic>
+            <topic>rq/camera/get_parametersRequest</topic>
+            <topic>rq/camera/list_parametersRequest</topic>
+            <topic>rq/camera/set_parametersRequest</topic>
+            <topic>rq/camera/set_parameters_atomicallyRequest</topic>
+            <topic>rr/camera/describe_parametersReply</topic>
+            <topic>rr/camera/get_parameter_typesReply</topic>
+            <topic>rr/camera/get_parametersReply</topic>
+            <topic>rr/camera/list_parametersReply</topic>
+            <topic>rr/camera/set_parametersReply</topic>
+            <topic>rr/camera/set_parameters_atomicallyReply</topic>
+            <topic>rt/imageraw</topic>
+            <topic>rt/newcameradata</topic>
+            <topic>rt/tmp0</topic>
+            <topic>rt/tmp1</topic>
+            <topic>rt/tmp2</topic>
+            <topic>rt/tmp3</topic>
+            <topic>rt/tmp4</topic>
+            <topic>rt/parameter_events</topic>
+            <topic>rt/rosout</topic>
+          </topics>
+        </publish>
+        <subscribe>
+          <topics>
+            <topic>rq/camera/describe_parametersRequest</topic>
+            <topic>rq/camera/get_parameter_typesRequest</topic>
+            <topic>rq/camera/get_parametersRequest</topic>
+            <topic>rq/camera/list_parametersRequest</topic>
+            <topic>rq/camera/set_parametersRequest</topic>
+            <topic>rq/camera/set_parameters_atomicallyRequest</topic>
+            <topic>rr/camera/describe_parametersReply</topic>
+            <topic>rr/camera/get_parameter_typesReply</topic>
+            <topic>rr/camera/get_parametersReply</topic>
+            <topic>rr/camera/list_parametersReply</topic>
+            <topic>rr/camera/set_parametersReply</topic>
+            <topic>rr/camera/set_parameters_atomicallyReply</topic>
+            <topic>rt/clock</topic>
+            <topic>rt/flowcontroller</topic>
+            <topic>rt/flip_image</topic>
+            <topic>rt/parameter_events</topic>
+          </topics>
+        </subscribe>
+      </allow_rule>
+      <default>DENY</default>
+    </grant>
+  </permissions>
+</dds>
+
+------AC256B78E72661FD91B622F6ACA60D7F
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIIC/wYJKoZIhvcNAQcCoIIC8DCCAuwCAQExDzANBglghkgBZQMEAgEFADALBgkq
+hkiG9w0BBwGgggFBMIIBPTCB5KADAgECAhR/zDIeKrBVC5FLJSbmFLGBhbXJszAK
+BggqhkjOPQQDAjAWMRQwEgYDVQQDDAtzcm9zMnRlc3RDQTAeFw0xOTA2MjUwNjI3
+MjNaFw0yOTA2MjIwNjI3MjNaMBYxFDASBgNVBAMMC3Nyb3MydGVzdENBMFkwEwYH
+KoZIzj0CAQYIKoZIzj0DAQcDQgAEix4qMqdSHYom+viJfLSM73KguDnvguwMmYaz
+cb4en+oL/Rmzqs8H9iW39JImrw7zwkxOHXLWdl89RLMHKSOmmaMQMA4wDAYDVR0T
+BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiEA0pLqHdaiu7/57BP3yuJEL7ebb4EB
+k3WcyaXYngLTBhkCIAsOP0brOUPT3JurzH7p+vRgeLxnO1NqIVOD8BRJ/ZOgMYIB
+gjCCAX4CAQEwLjAWMRQwEgYDVQQDDAtzcm9zMnRlc3RDQQIUf8wyHiqwVQuRSyUm
+5hSxgYW1ybMwDQYJYIZIAWUDBAIBBQCggeQwGAYJKoZIhvcNAQkDMQsGCSqGSIb3
+DQEHATAcBgkqhkiG9w0BCQUxDxcNMTkxMTIyMDQzNzMwWjAvBgkqhkiG9w0BCQQx
+IgQgdQ9vh+zUHdRHdC2FAz1xhSbrzEZbnQr8kjj37jVmOOEweQYJKoZIhvcNAQkP
+MWwwajALBglghkgBZQMEASowCwYJYIZIAWUDBAEWMAsGCWCGSAFlAwQBAjAKBggq
+hkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcw
+DQYIKoZIhvcNAwICASgwCgYIKoZIzj0EAwIERzBFAiAtnp50Kn0/ZXA7O6c7sKJ+
+IJ1ip/Ofn9sIiPr/rgvHvAIhANPGBt8zfhw/byRDGQp+uoDyeoH62oVWFCCHgrXX
+j6JG
+
+------AC256B78E72661FD91B622F6ACA60D7F--
+

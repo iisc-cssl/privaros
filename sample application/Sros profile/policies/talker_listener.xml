@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<policy version="0.1.0"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+  <profiles>
+    <profile ns="/" node="talker">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics publish="ALLOW" >
+        <topic>chatter</topic>
+        <topic>demo</topic>
+        
+      </topics>
+      <topics subscribe="ALLOW" >
+        <topic>flowcontroller</topic>
+      </topics>
+    </profile>
+    <profile ns="/" node="listener">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics subscribe="ALLOW" >
+        <topic>chatter</topic>
+        <topic>flowcontroller</topic>
+        <topic>demo</topic>
+        
+      </topics>
+    </profile>
+    
+    
+    <profile ns="/" node="camera">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics publish="ALLOW" >
+        <topic>imageraw</topic>
+        <topic>newcameradata</topic>
+        <topic>tmp0</topic>
+        <topic>tmp1</topic>
+        <topic>tmp2</topic>
+        <topic>tmp3</topic>
+        <topic>tmp4</topic>
+        
+        
+      </topics>
+      <topics subscribe="ALLOW" >
+        <topic>flowcontroller</topic>
+        <topic>flip_image</topic>
+        
+      </topics>
+    </profile>
+    
+    <profile ns="/" node="blurfilter">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics publish="ALLOW" >
+        <topic>output</topic>
+      </topics>
+      <topics subscribe="ALLOW" >
+        <topic>input</topic>
+      </topics>
+    </profile>
+    <profile ns="/" node="showimage">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics subscribe="ALLOW" >
+        <topic>imageraw</topic>
+        <topic>flowcontroller</topic>
+      </topics>
+    </profile>
+    <profile ns="/" node="colonel">
+      <xi:include href="common/node.xml"
+        xpointer="xpointer(/profile/*)"/>
+      <topics publish="ALLOW" >
+        <topic>flowcontroller</topic>
+      </topics>
+      
+      <topics subscribe="ALLOW" >
+        <topic>imageraw</topic>
+        <topic>flowcontroller</topic>
+      </topics>
+    </profile>
+    
+    
+  </profiles>
+</policy>

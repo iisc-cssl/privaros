@@ -1,0 +1,90 @@
+MIME-Version: 1.0
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----11545E01856F88E373B570F0EDFE9E4C"
+
+This is an S/MIME signed message
+
+------11545E01856F88E373B570F0EDFE9E4C
+Content-Type: text/plain
+
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.omg.org/spec/DDS-SECURITY/20170901/omg_shared_ca_permissions.xsd">
+  <permissions>
+    <grant name="/colonel">
+      <subject_name>CN=/colonel</subject_name>
+      <validity>
+        <not_before>2013-10-26T00:00:00</not_before>
+        <not_after>2023-10-26T22:45:30</not_after>
+      </validity>
+      <allow_rule>
+        <domains>
+          <id>0</id>
+        </domains>
+        <publish>
+          <topics>
+            <topic>rq/colonel/describe_parametersRequest</topic>
+            <topic>rq/colonel/get_parameter_typesRequest</topic>
+            <topic>rq/colonel/get_parametersRequest</topic>
+            <topic>rq/colonel/list_parametersRequest</topic>
+            <topic>rq/colonel/set_parametersRequest</topic>
+            <topic>rq/colonel/set_parameters_atomicallyRequest</topic>
+            <topic>rr/colonel/describe_parametersReply</topic>
+            <topic>rr/colonel/get_parameter_typesReply</topic>
+            <topic>rr/colonel/get_parametersReply</topic>
+            <topic>rr/colonel/list_parametersReply</topic>
+            <topic>rr/colonel/set_parametersReply</topic>
+            <topic>rr/colonel/set_parameters_atomicallyReply</topic>
+            <topic>rt/flowcontroller</topic>
+            <topic>rt/parameter_events</topic>
+            <topic>rt/rosout</topic>
+          </topics>
+        </publish>
+        <subscribe>
+          <topics>
+            <topic>rq/colonel/describe_parametersRequest</topic>
+            <topic>rq/colonel/get_parameter_typesRequest</topic>
+            <topic>rq/colonel/get_parametersRequest</topic>
+            <topic>rq/colonel/list_parametersRequest</topic>
+            <topic>rq/colonel/set_parametersRequest</topic>
+            <topic>rq/colonel/set_parameters_atomicallyRequest</topic>
+            <topic>rr/colonel/describe_parametersReply</topic>
+            <topic>rr/colonel/get_parameter_typesReply</topic>
+            <topic>rr/colonel/get_parametersReply</topic>
+            <topic>rr/colonel/list_parametersReply</topic>
+            <topic>rr/colonel/set_parametersReply</topic>
+            <topic>rr/colonel/set_parameters_atomicallyReply</topic>
+            <topic>rt/clock</topic>
+            <topic>rt/imageraw</topic>
+            <topic>rt/flowcontroller</topic>
+            <topic>rt/parameter_events</topic>
+          </topics>
+        </subscribe>
+      </allow_rule>
+      <default>DENY</default>
+    </grant>
+  </permissions>
+</dds>
+
+------11545E01856F88E373B570F0EDFE9E4C
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIIC/gYJKoZIhvcNAQcCoIIC7zCCAusCAQExDzANBglghkgBZQMEAgEFADALBgkq
+hkiG9w0BBwGgggFBMIIBPTCB5KADAgECAhR/zDIeKrBVC5FLJSbmFLGBhbXJszAK
+BggqhkjOPQQDAjAWMRQwEgYDVQQDDAtzcm9zMnRlc3RDQTAeFw0xOTA2MjUwNjI3
+MjNaFw0yOTA2MjIwNjI3MjNaMBYxFDASBgNVBAMMC3Nyb3MydGVzdENBMFkwEwYH
+KoZIzj0CAQYIKoZIzj0DAQcDQgAEix4qMqdSHYom+viJfLSM73KguDnvguwMmYaz
+cb4en+oL/Rmzqs8H9iW39JImrw7zwkxOHXLWdl89RLMHKSOmmaMQMA4wDAYDVR0T
+BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiEA0pLqHdaiu7/57BP3yuJEL7ebb4EB
+k3WcyaXYngLTBhkCIAsOP0brOUPT3JurzH7p+vRgeLxnO1NqIVOD8BRJ/ZOgMYIB
+gTCCAX0CAQEwLjAWMRQwEgYDVQQDDAtzcm9zMnRlc3RDQQIUf8wyHiqwVQuRSyUm
+5hSxgYW1ybMwDQYJYIZIAWUDBAIBBQCggeQwGAYJKoZIhvcNAQkDMQsGCSqGSIb3
+DQEHATAcBgkqhkiG9w0BCQUxDxcNMjAwODEyMDg1ODUyWjAvBgkqhkiG9w0BCQQx
+IgQgUf6f1GFHF5133EMiINCzQ+49GEeS+1ygcbS9IBqn/dcweQYJKoZIhvcNAQkP
+MWwwajALBglghkgBZQMEASowCwYJYIZIAWUDBAEWMAsGCWCGSAFlAwQBAjAKBggq
+hkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcw
+DQYIKoZIhvcNAwICASgwCgYIKoZIzj0EAwIERjBEAiADuXp1SMB9MBS9IiJwxwDg
+wA6pKeMkUPjjxM8Y7TLV3QIgct/5QSkaruse6PgTBnnT5J4tM7iU1jh7Sl1PuqcW
+lAQ=
+
+------11545E01856F88E373B570F0EDFE9E4C--
+
